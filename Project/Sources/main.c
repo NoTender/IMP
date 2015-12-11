@@ -2,12 +2,14 @@
 /* xdudek04       */
 /* Projekt do IMP */
 /* 2015           */
+/* original */
+/* posledni zmena: 11.12.2015 */
 #include <hidef.h> /* for EnableInterrupts macro */
 #include "derivative.h" /* include peripheral declarations */
 
 #define VELIKOST_PANELU 32
-#define VELIKOST_POLE 64
-#define INIT 0
+#define VELIKOST_POLE 64 //Velikost pole loginSloupce
+#define INIT 0 //Kody pro jednotlive operace
 #define ROT_HORIZONTAL 1
 #define ROT_VERTICAL 2
 
