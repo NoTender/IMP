@@ -34,12 +34,12 @@ unsigned char loginSloupce[] = {
 0,
 /* znak - u :  */
 0,
-0b00111110,
+0b00111100,
 0b01000000,
 0b01000000,
 0b01000000,
 0b01000000,
-0b00111110,
+0b00111100,
 0,
 /* znak - d : */
 0,
@@ -70,12 +70,12 @@ unsigned char loginSloupce[] = {
 0,
 /* znak - 0 : */
 0,
-0b00011000,
-0b00100100,
+0,
+0b00111100,
 0b01000010,
 0b01000010,
-0b00100100,
-0b00011000,
+0b00111100,
+0,
 0,
 /* znak - 4: */
 0,
@@ -90,11 +90,35 @@ unsigned char loginSloupce[] = {
 
 void nastavPanel(unsigned char *zobrazovaciPanel,int x, int y) {
 int i; //ridici promenna cyklu
+int j; //ridici promenna druheho cyklu
+unsigned char tmp;
 x = x % VELIKOST_POLE;
 
-for (i = VELIKOST_PANELU -1; i >= 0; i--)
-	zobrazovaciPanel[i] = loginSloupce[(i-x >= 0) ? (i-x) : (VELIKOST_POLE + (i-x))];
+for (i = VELIKOST_PANELU -1; i >= 0; i--) //Pro kazdy sloupec v panelu
+{
+	tmp = loginSloupce[(i-x >= 0) ? (i-x) : (VELIKOST_POLE + (i-x))]; //Horizontalni rotace, podle promenne x se do promenne tmp
+																	  //ulozi odpovidajici znak z pole loginSloupce
+	y = y % 8; //Zajisti, ze y bude v rozmezi 0-7
+	for (j = 0; j < y; j++) //Vertikalni rotace
+		tmp = (tmp >> 1) | (tmp << 7); //Rotace smerem doprava realizovana pomoci bitovych posuvu
+	
+	zobrazovaciPanel[i] = tmp; //Vlozi (pripadne zrotovanou) polozku do zobrazovaciho panelu 
+}
+}
 
+void zpomaleni(unsigned char rychlostRotace, unsigned char *tlacitkoInit, unsigned char *tlacitkoHoriz, unsigned char *tlacitkoVert, unsigned *operace) //Funkce realizujici zpomaleni
+{
+	int i;
+	int koeficient = 4525 - rychlostRotace*15; //Koeficient urcujici miru zpozdeni
+	for(i = 0; i < koeficient; i++) //Cyklus realizujici zpozdeni
+	{
+		if(*tlacitkoInit) //V tomto cyklu muze byt zmacknuto tlacitko, ktere by se bez pritomnosti techto podminek ignorovalo
+			*operace = INIT;
+		else if (*tlacitkoHoriz)
+			*operace = ROT_HORIZONTAL;
+		else if (*tlacitkoVert)
+			*operace = ROT_VERTICAL; 
+	}
 }
 
 void main(void) {
@@ -104,14 +128,14 @@ unsigned char *tlacitkoVert = (unsigned char *) 0x00B2;
 unsigned char *rychlostRotace = (unsigned char *) 0x00B3;
 unsigned char *zobrazovaciPanel = (unsigned char *) 0x00B4;
 
-int x = 0;
-int y = 0;
-unsigned operace = 0;
-*tlacitkoInit = 0;
+int x = 0; //Index zvestujici se pri horizontalnim posunu
+int y = 0; //Index zvetsujici se pri vertikalnim posunu
+unsigned operace = 0; //promenna urcujici, zda se jedna o INIT, horizontalni, ci vertikalni rotaci
+*tlacitkoInit = 0; //Inicializace tlacitek, bez tohoto bude program hlasit chybu
 *tlacitkoHoriz = 0;
 *tlacitkoVert = 0;
-*rychlostRotace = 127;
-nastavPanel(zobrazovaciPanel, x, y);
+*rychlostRotace = 0;
+nastavPanel(zobrazovaciPanel, x, y); //Vykresleni prvnich 4 pismen loginu pri prvnim spusteni
 
 
   EnableInterrupts; /* enable interrupts */
@@ -121,26 +145,28 @@ nastavPanel(zobrazovaciPanel, x, y);
 
   for(;;) {
     __RESET_WATCHDOG(); /* feeds the dog */
-  	if(*tlacitkoInit)
+  	if(*tlacitkoInit) //Kontrola, zda neni stisknuto nejake z tlacitek, pokud neni uchova se hodnota tlacitka z predchoziho stavu (aby napriklad stale dochazelo k rotaci)
   		operace = INIT;
   	else if (*tlacitkoHoriz)
   		operace = ROT_HORIZONTAL;
   	else if (*tlacitkoVert)
   		operace = ROT_VERTICAL;
     
-    if (operace == INIT)
+    if (operace == INIT) //Inicializace na pocatecni hodnoty
    	{
    		nastavPanel(zobrazovaciPanel, 0, 0);
    		x = 0;
    		y = 0;
    	} 
-   	else if (operace == ROT_HORIZONTAL)
+   	else if (operace == ROT_HORIZONTAL) //Horizontalni rotace, zvysuje se promenna x
    	{
-   		nastavPanel(zobrazovaciPanel, ++x, 0);
+   		nastavPanel(zobrazovaciPanel, ++x, y);
+   		zpomaleni(*rychlostRotace, tlacitkoInit, tlacitkoHoriz, tlacitkoVert, &operace);
    	} 
-   	else if(operace == ROT_VERTICAL)
+   	else if(operace == ROT_VERTICAL) //Vertikalni rotace, zvysuje se promenna y
    	{
-   		nastavPanel(zobrazovaciPanel, 8, 8);
+   		nastavPanel(zobrazovaciPanel, x, ++y);
+   		zpomaleni(*rychlostRotace, tlacitkoInit, tlacitkoHoriz, tlacitkoVert, &operace);
    	}
   } /* loop forever */
   /* please make sure that you never leave main */
